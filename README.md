@@ -1,2 +1,1 @@
-# AR-Direct-Demo
-Template for AR Direct Demo.
+# Opening AR First Template
