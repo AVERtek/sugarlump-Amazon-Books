@@ -23,6 +23,24 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   gtag('config', 'UA-000000000-0');
  </script>
+
+ <!-- CSS code to place Instruction Button center and size it in the head section -->
+ <style>
+        .button-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh; /* Adjust as needed */
+        }
+
+        button.slide.selected {
+            width: 200px; /* Adjust as needed */
+            height: 100px; /* Adjust as needed */
+            background-size: cover;
+            background-position: center;
+        }
+    </style>
+ 
  </head>
 
  <!-- Loads <model-viewer> for modern browsers: -->
@@ -293,10 +311,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!--<button class="slide selected" onclick="switchSrc(this, 'https://avertek.github.io/Construction_Demo_AR-Direct_2/')" style="background-image: url('images/Company Here transpa.png');">
     </button> -->
   <!--<div class="container"> -->
-    <button class="slide selected" onclick="switchSrc(this, 'https://avertek.github.io/Construction_Demo_AR-Direct_2/')"
+    <!--<button class="slide selected" onclick="switchSrc(this, 'https://avertek.github.io/Construction_Demo_AR-Direct_2/')"
             style="background-image: url('images/AR Instructions wht-trans3.png');">
         <!-- Your button content here -->
+    </button> -->
+
+   <div class="button-container">
+    <button class="slide selected" onclick="switchSrc(this, 'https://avertek.github.io/Construction_Demo_AR-Direct_2/')"
+            style="background-image: url('images/AR Instructions wht-trans3.png');">
     </button>
+
 </div>
 
   </div>
