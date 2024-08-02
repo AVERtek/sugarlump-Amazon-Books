@@ -19,6 +19,78 @@
       border-radius: 5px;
       cursor: pointer;
     }
+    #url-button {
+      display: none;
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <model-viewer 
+    src="Models/CONSTRUCTION_CENTERED.glb?sound=Sound/Hip Hop This 20.mp3" 
+    <!--ios-src="path/to/your-model.usdz" -->
+    alt="A 3D model" 
+    ar 
+    ar-modes="scene-viewer webxr quick-look" 
+    camera-controls 
+    auto-rotate 
+    autoplay 
+    poster="images/under-construction2.png" 
+    shadow-intensity="1" 
+    ar-scale="auto" 
+    ar-placement="floor">
+    <button slot="ar-button" id="ar-button">View in your space</button>
+  </model-viewer>
+
+  <audio id="audio" src="Sound/Hip Hop This 20.mp3" loop></audio>
+  <button id="play-audio" onclick="document.getElementById('audio').play()">Play Audio</button>
+
+  <button id="url-button" onclick="window.location.href='https://avertek.github.io/Construction_Demo_AR-Direct_2/'">Go to URL</button>
+
+  <script>
+    const modelViewer = document.querySelector('model-viewer');
+    modelViewer.addEventListener('ar-status', (event) => {
+      if (event.detail.status === 'session-started') {
+        document.getElementById('url-button').style.display = 'block';
+      } else {
+        document.getElementById('url-button').style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
+
+<!--INITIAL LOAD CODE-->
+<!--<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Animation with Audio</title>
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <script nomodule src="https://unpkg.com/@google/model-viewer/dist/model-viewer-legacy.js"></script>
+  <style>
+    #ar-button {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
      <!--#url-button {
       display: none;
       position: absolute;
@@ -43,7 +115,7 @@
     camera-controls 
     auto-rotate 
     autoplay 
-    poster="images/under-construction-2891888.jpg" 
+    poster="images/under-construction2.png" 
     shadow-intensity="1" 
     ar-scale="auto" 
     ar-placement="floor"
@@ -66,4 +138,4 @@
     });
   </script>
 </body>
-</html>
+</html> -->
