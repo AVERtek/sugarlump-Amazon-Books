@@ -23,7 +23,6 @@
             width: 100%;
             height: 100vh;
             background-color: #ffffff;
-            /* Ensure it fills the screen for AR immersion */
         }
 
         /* Container for the main controls (Play/Pause, Go to Book) */
@@ -87,6 +86,23 @@
             z-index: 20; /* Ensure it's above everything */
             display: none; /* Hidden by default */
         }
+
+        /* Message for Audio Autoplay Failure */
+        #audio-fallback-message {
+            position: absolute;
+            top: 20%; /* Position higher up */
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 99, 71, 0.9); /* Tomato red */
+            color: white;
+            padding: 15px 25px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 1em;
+            z-index: 30; /* Above AR message */
+            display: none; /* Hidden by default */
+            cursor: pointer; /* Indicate it's clickable */
+        }
     </style>
 </head>
 <body>
@@ -95,6 +111,10 @@
         Please open this page on your smartphone or tablet.
         <br><br>
         (The 3D model will appear below, but AR features are mobile-only.)
+    </div>
+
+    <div id="audio-fallback-message">
+        Tap here to enable sound.
     </div>
 
     <model-viewer
@@ -128,6 +148,7 @@
         const audio = document.getElementById('audio');
         const arMessage = document.getElementById('ar-message');
         const arButton = document.getElementById('ar-button'); // Reference to the slotted AR button
+        const audioFallbackMessage = document.getElementById('audio-fallback-message');
 
         let isPlaying = false; // Initial state: neither animation nor audio is playing
 
@@ -137,7 +158,7 @@
                    ('ontouchstart' in window && navigator.maxTouchPoints > 0);
         }
 
-        // --- Unified Play/Pause Function ---
+        // --- Unified Play/Pause Function for Model Animation and Audio ---
         function togglePlayPause() {
             if (isPlaying) {
                 modelViewer.pause();
@@ -145,31 +166,47 @@
                 playPauseButton.textContent = 'Play Animation & Audio';
             } else {
                 modelViewer.play();
-                // Check if audio can be played (user interaction often required for audio)
                 audio.play().catch(error => {
-                    console.warn("Audio play failed:", error);
-                    // Inform user if audio requires interaction
-                    // You might want to display a message like "Click to enable audio"
+                    console.warn("Audio play failed on Play/Pause button click:", error);
+                    // If play fails here, it's likely a browser restriction.
+                    // The fallback message will handle it if it appears.
                 });
                 playPauseButton.textContent = 'Pause Animation & Audio';
             }
             isPlaying = !isPlaying;
         }
 
+        // --- Function to play audio with fallback message ---
+        function playAudioWithFallback() {
+            audio.play().then(() => {
+                // Audio played successfully, hide fallback message
+                audioFallbackMessage.style.display = 'none';
+            }).catch(error => {
+                console.error("Audio play failed, showing fallback:", error);
+                // Show fallback message if audio autoplay is blocked
+                audioFallbackMessage.style.display = 'block';
+                audioFallbackMessage.onclick = () => {
+                    audio.play().then(() => {
+                        audioFallbackMessage.style.display = 'none';
+                    }).catch(err => {
+                        console.error("Audio still failing after user tap:", err);
+                    });
+                };
+            });
+        }
+
+
         // --- Initial Setup and Immediate AR Launch on Mobile / PC Message ---
         document.addEventListener('DOMContentLoaded', () => {
             if (isMobileDevice()) {
-                // On mobile, hide the generic message
-                arMessage.style.display = 'none';
-                // Trigger AR immediately for mobile users
-                // Note: activateAR() will attempt to launch AR. The actual AR session
-                // starting and camera access might still require a user's explicit consent
-                // or a "click" on the AR button by the user depending on browser/OS policies.
+                arMessage.style.display = 'none'; // Hide generic PC message on mobile
+                // Attempt to launch AR immediately on mobile.
+                // Note: activateAR() might still require a user gesture for actual session start.
                 modelViewer.activateAR();
             } else {
                 // On PC, show the message and hide the AR button as it's not functional
                 arMessage.style.display = 'block';
-                arButton.style.display = 'none';
+                arButton.style.display = 'none'; // Hide the AR button on desktop
             }
 
             // Set initial play/pause button state
@@ -178,68 +215,74 @@
 
         // --- Event Listeners for Model Viewer and Controls ---
 
-        // Play/Pause button click
+        // Main Play/Pause button click
         playPauseButton.addEventListener('click', togglePlayPause);
 
-        // Model Viewer's 'play' event (e.g., if animation starts via other means)
+        // Listen for model-viewer's internal play/pause events
+        // These are to keep our button and state in sync if animation
+        // state changes occur outside our button (e.g., when AR starts/ends)
         modelViewer.addEventListener('play', () => {
-            // Ensure audio plays if model starts (and it's not already playing from our button)
-            if (!isPlaying) { // Prevent re-triggering if our button already set isPlaying
+            // Only update if our button wasn't the direct cause of this 'play' event
+            if (!isPlaying) {
                 isPlaying = true;
                 playPauseButton.textContent = 'Pause Animation & Audio';
-                audio.play().catch(error => console.warn("Audio play failed on model.play event:", error));
+                if (audio.paused) { // Ensure audio also plays
+                    audio.play().catch(error => console.warn("Audio play failed on model.play event:", error));
+                }
             }
         });
 
-        // Model Viewer's 'pause' event
         modelViewer.addEventListener('pause', () => {
-            // Ensure audio pauses if model pauses (and it's not already paused from our button)
-            if (isPlaying) { // Prevent re-triggering if our button already set isPlaying
+            // Only update if our button wasn't the direct cause of this 'pause' event
+            if (isPlaying) {
                 isPlaying = false;
                 playPauseButton.textContent = 'Play Animation & Audio';
-                audio.pause();
+                if (!audio.paused) { // Ensure audio also pauses
+                    audio.pause();
+                }
             }
         });
 
         // --- Crucial: Play animation and audio when AR session starts ---
         modelViewer.addEventListener('ar-status', (event) => {
             if (event.detail.status === 'session-started') {
-                console.log('AR session started!');
+                console.log('AR session started! Attempting to play animation and audio.');
                 // Hide main controls and message during AR session for immersive experience
                 playPauseButton.style.display = 'none';
                 urlButton.style.display = 'block'; // Show URL button in AR
                 arMessage.style.display = 'none'; // Ensure message is hidden
+                audioFallbackMessage.style.display = 'none'; // Hide audio message too
 
                 // Immediately play animation and audio upon AR session start
-                // This might still be subject to browser/OS autoplay policies for audio
                 modelViewer.play();
-                audio.play().catch(error => {
-                    console.error("Audio play failed on AR session start:", error);
-                    // Add a visible message to the user if audio doesn't auto-play
-                    alert("Audio couldn't auto-play in AR. Please enable sound manually if needed.");
-                });
+                playAudioWithFallback(); // Use our robust audio play function
+
                 isPlaying = true; // Update global state
-                playPauseButton.textContent = 'Pause Animation & Audio'; // Update button, though it's hidden
+                // (playPauseButton text is not visible in AR, but kept updated for consistency)
 
             } else if (event.detail.status === 'session-ended') {
                 console.log('AR session ended.');
                 // Show main controls again after AR session ends
                 playPauseButton.style.display = 'block';
-                urlButton.style.display = 'none'; // Hide URL button
+                urlButton.style.display = 'none'; // Hide URL button again
                 modelViewer.pause(); // Pause animation when leaving AR
-                audio.pause(); // Pause audio when leaving AR
+                audio.pause();       // Pause audio when leaving AR
                 isPlaying = false;
                 playPauseButton.textContent = 'Play Animation & Audio';
+                audioFallbackMessage.style.display = 'none'; // Hide any lingering audio message
 
                 // If on PC, re-show the AR message
                 if (!isMobileDevice()) {
                     arMessage.style.display = 'block';
                     arButton.style.display = 'none';
                 }
-            } else if (event.detail.status === 'not-ar-capable' && !isMobileDevice()) {
-                // For desktop browsers that report not AR capable
-                arMessage.style.display = 'block';
-                arButton.style.display = 'none';
+            } else if (event.detail.status === 'not-ar-capable') {
+                // This status can occur on mobile if device truly isn't AR capable,
+                // or on desktop if the model-viewer determines it.
+                if (!isMobileDevice()) { // Only show message if definitely on PC
+                    arMessage.style.display = 'block';
+                    arButton.style.display = 'none';
+                }
             }
             // For other ar-status like 'failed', 'error', etc., you might add more handling
         });
