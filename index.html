@@ -160,6 +160,7 @@
 
         let isPlaying = false; // Initial state for desktop animation/audio
         let isARActive = false; // Flag to track if AR session is active
+        let audioAlreadyPlayedInAR = false; // New flag to prevent prompt reappearing once tapped
 
         // --- Device Detection (Simple) ---
         function isMobileDevice() {
@@ -180,20 +181,19 @@
                 audio.pause();
                 playPauseButton.textContent = 'Play Animation & Audio';
             } else {
-                // Only try to play if an animation name is set
+                // Only try to play animation if an animation name is set
                 if (modelViewer.animationName) {
                     modelViewer.play();
                 } else {
                     console.warn("No animation-name specified or found on model. Cannot play animation.");
                 }
 
-                // Attempt to play audio
+                // Attempt to play audio (this should work on desktop with a click)
                 audio.play().then(() => {
                     console.log("Audio played successfully via Play/Pause button.");
                 }).catch(error => {
                     console.warn("Audio play failed on Play/Pause button click (desktop):", error);
-                    // On desktop, we don't usually need a persistent prompt for audio
-                    // as users expect to click to start.
+                    // On desktop, we typically don't show a persistent prompt for this button
                 });
                 playPauseButton.textContent = 'Pause Animation & Audio';
             }
@@ -261,24 +261,37 @@
                     console.warn("No animation-name specified or found. Cannot play animation in AR.");
                 }
 
-                // Attempt to play audio. This is the crucial part that might fail without user gesture.
-                audio.play().then(() => {
-                    console.log("Audio played successfully in AR (autoplay success).");
-                    audioInARPrompt.style.display = 'none'; // Hide if successful
-                }).catch(error => {
-                    console.error("Audio autoplay failed in AR (user gesture needed):", error);
-                    // Display the prompt if autoplay failed
-                    audioInARPrompt.style.display = 'block';
-                    // Make the prompt itself clickable to trigger audio
-                    audioInARPrompt.onclick = () => {
-                        audio.play().then(() => {
-                            audioInARPrompt.style.display = 'none';
-                            console.log("Audio played after user tap on prompt in AR.");
-                        }).catch(err => {
-                            console.error("Audio still failing after user tap on prompt in AR:", err);
-                        });
-                    };
-                });
+                // Attempt to play audio only if it hasn't successfully played in AR before
+                if (!audioAlreadyPlayedInAR) {
+                    audio.play().then(() => {
+                        console.log("Audio played successfully in AR (autoplay success).");
+                        audioInARPrompt.style.display = 'none'; // Hide if successful
+                        audioAlreadyPlayedInAR = true; // Mark as played
+                    }).catch(error => {
+                        console.error("Audio autoplay failed in AR (user gesture needed):", error);
+                        // Display the prompt if autoplay failed
+                        audioInARPrompt.style.display = 'block';
+                        // Make the prompt itself clickable to trigger audio
+                        audioInARPrompt.onclick = () => {
+                            audio.play().then(() => {
+                                audioInARPrompt.style.display = 'none';
+                                audioAlreadyPlayedInAR = true; // Mark as played
+                                console.log("Audio played after user tap on prompt in AR.");
+                            }).catch(err => {
+                                console.error("Audio still failing after user tap on prompt in AR:", err);
+                                // You might want a persistent "audio failed" message here if it still doesn't play
+                            });
+                        };
+                    });
+                } else {
+                    // If audio has already been successfully played in AR, just play it again
+                    audio.play().catch(error => {
+                         console.warn("Audio play failed on re-entering AR (already played once):", error);
+                         // This might happen if user navigated away and back without closing tab
+                         // In this case, the prompt won't reappear due to audioAlreadyPlayedInAR
+                    });
+                }
+
 
             } else if (event.detail.status === 'session-ended') {
                 console.log('AR session ended.');
@@ -322,14 +335,13 @@
 
         // --- URL Button Logic ---
         urlButton.addEventListener('click', () => {
-            const amazonUrl = "https://www.amazon.com/Sweet-Dreams-Sugarlump-childrens-everywhere/dp/B0FFZD7D12/ref=sr_1_1?crid=2PE5ZR31RUKFJ&dib=eyJ2IjoiMSJ9.eirXTPVo6volOV0M2LSzWYM7M7OETpDHtuB5kCsvMqZpHjvNE3fvrGYiQzi9OEE_KnGVoDwiK8TJUKsihTlWlEkYrzfe4QfSs8rE6vaoo0Y5Bf2qKzpuFPGm7bKE9IC-Kz-0FvP462KBgxOa04D1aqfLppMInjk90QDppqNon6eTrQ0InDpeNmty3hB14QayZjes0oEcHGgvSH_4mtoM9SHyIbK9wzspljEyRdN_vAiF9SAFTutLx3FZqHy8JM44s5QDZ0XdYakBff_dMR3KMvFf10ZCsMFhMmGz6QY5jPI.EkEaYpKKTbUyJ3uJZG_vjHaGCtcX2MSHyN27dyNdIqY&dib_tag=se&keywords=sugarlump&qid=1752536576&sprefix=sugarlump%2Caps%2C158&sr=8-1'";
+            const amazonUrl = "https://www.amazon.com/Sweet-Dreams-Sugarlump-childrens-everywhere/dp/B0FFZD7D12/ref=sr_1_1?crid=2PE5ZR31RUKFJ&dib=eyJ2IjoiMSJ9.eirXTPVo6volOV0M2LSzWYM7M7OETpDHtuB5kCsvMqZpHjvNE3fvrGYiQzi9OEE_KnGVoDwiK8TJUKsihTlWlEkYrzfe4QfSs8rE6vaoo0Y5BfWqKzpuFPGm7bKE9IC-Kz-0FvP462KBgxOa04D1aqfLppMInjk90QDppqNon6eTrQ0InDpeNmty3hB14QayZjes0oEcHGgvSH_4mtoM9SHyIbK9wzspljEyRdN_vAiF9SAFTutLx3FZqHy8JM44s5QDZ0XdYakBff_dMR3KMvFf10ZCsMFhMmGz6QY5jPI.EkEaYpKKTbUyJ3uJZG_vjHaGCtcX2MSHyN27dyNdIqY&dib_tag=se&keywords=sugarlump&qid=1752536576&sprefix=sugarlump%2Caps%2C158&sr=8-1'";
             window.open(amazonUrl, '_blank');
         });
 
     </script>
 </body>
 </html>
-
 
 <!--<!DOCTYPE html>
 <html lang="en">
