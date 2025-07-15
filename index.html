@@ -243,6 +243,14 @@
     </div>
 
     <script>
+         window.addEventListener("load", () => {
+         var modelViewer = document.querySelector('model-viewer');
+         console.log("Can activate AR: " + modelViewer.canActivateAR);
+         modelViewer.activateAR();
+         });
+    </script>
+
+    <script>
         const modelViewer = document.getElementById('myModelViewer');
         const playStopButton = document.getElementById('playStopButton');
         const urlButton = document.getElementById('url-button');
