@@ -156,6 +156,7 @@
         src="Models/kindness_rocks_large_7.glb"
         ios-src="KINDNESS_ROCKS_LARGE_7_Output.usdz"
         alt="A 3D model"
+        mode="ar_preferred"
         ar
         ar-modes="scene-viewer webxr quick-look"
         camera-controls
@@ -173,6 +174,14 @@
         <button id="url-button" class="url-button">Go to Book</button>
     </div>
 
+    <script>
+        window.addEventListener("load", () => {
+        var modelViewer = document.querySelector('model-viewer');
+        console.log("Can activate AR: " + modelViewer.canActivateAR);
+        modelViewer.activateAR();
+        });
+    </script>
+    
     <script>
         const modelViewer = document.getElementById('myModelViewer');
         const playPauseButton = document.getElementById('playPauseButton');
