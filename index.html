@@ -71,20 +71,22 @@
             background-color: #218838;
         }
 
-        /* Message for PC users for AR */
+        /* Message for PC users for AR - MOVED TO TOP */
         #ar-message {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: 0; /* Moved to top */
+            left: 0; /* Align left */
+            transform: none; /* Remove centering transform */
+            width: 100%; /* Full width */
             background-color: rgba(0, 0, 0, 0.8);
             color: white;
-            padding: 20px;
-            border-radius: 8px;
+            padding: 10px 0; /* Adjusted padding */
+            border-radius: 0; /* No border-radius for banner */
             text-align: center;
             font-size: 1.2em;
-            z-index: 20; /* Ensure it's above everything */
+            z-index: 20;
             display: none; /* Hidden by default */
+            box-sizing: border-box; /* Include padding in width */
         }
 
         /* Prompt for audio in AR if it doesn't autoplay */
@@ -127,7 +129,7 @@
 
     <model-viewer
         id="myModelViewer"
-        src="Models/kindness_rocks_large_7.glb?sound=Sound/Kindness Rocks_mix.mp3"
+        src="Models/kindness_rocks_large_7.glb"
         ios-src="KINDNESS_ROCKS_LARGE_7_Output.usdz"
         alt="A 3D model"
         ar
@@ -160,7 +162,7 @@
 
         let isPlaying = false; // Initial state for desktop animation/audio
         let isARActive = false; // Flag to track if AR session is active
-        let audioAlreadyPlayedInAR = false; // New flag to prevent prompt reappearing once tapped
+        let audioAlreadyPlayedInARSession = false; // Renamed for clarity: tracks if audio played in *current* AR session
 
         // --- Device Detection (Simple) ---
         function isMobileDevice() {
@@ -205,8 +207,6 @@
             if (isMobileDevice()) {
                 arMessage.style.display = 'none'; // Hide generic PC message on mobile
                 // Attempt to launch AR immediately on mobile.
-                // This call itself might still require a user gesture on some browsers
-                // to open the AR viewer (e.g., Chrome on Android's Scene Viewer app).
                 modelViewer.activateAR();
             } else {
                 // On PC, show the message and hide the AR button as it's not functional
@@ -224,17 +224,13 @@
         playPauseButton.addEventListener('click', togglePlayPause);
 
         // Listen for model-viewer's internal play/pause events
-        // These are primarily for updating the button's visual state,
-        // not for toggling the `isPlaying` flag (that's the button's job).
         modelViewer.addEventListener('play', () => {
-            // Only update if not in AR (where this button is hidden)
             if (!isARActive) {
                 playPauseButton.textContent = 'Pause Animation & Audio';
             }
         });
 
         modelViewer.addEventListener('pause', () => {
-            // Only update if not in AR (where this button is hidden)
             if (!isARActive) {
                 playPauseButton.textContent = 'Play Animation & Audio';
             }
@@ -261,37 +257,38 @@
                     console.warn("No animation-name specified or found. Cannot play animation in AR.");
                 }
 
-                // Attempt to play audio only if it hasn't successfully played in AR before
-                if (!audioAlreadyPlayedInAR) {
-                    audio.play().then(() => {
-                        console.log("Audio played successfully in AR (autoplay success).");
-                        audioInARPrompt.style.display = 'none'; // Hide if successful
-                        audioAlreadyPlayedInAR = true; // Mark as played
-                    }).catch(error => {
-                        console.error("Audio autoplay failed in AR (user gesture needed):", error);
-                        // Display the prompt if autoplay failed
+                // Attempt to play audio
+                audio.play().then(() => {
+                    // Audio autoplayed successfully (rare, but possible on some systems/browsers)
+                    console.log("Audio played successfully in AR (autoplay success).");
+                    audioInARPrompt.style.display = 'none'; // Hide the prompt immediately
+                    audioAlreadyPlayedInARSession = true; // Mark as played for this session
+                }).catch(error => {
+                    // Audio autoplay failed, show the prompt
+                    console.error("Audio autoplay failed in AR (user gesture needed):", error);
+                    // Only show the prompt if audio hasn't been successfully played *in the current AR session*
+                    if (!audioAlreadyPlayedInARSession) {
                         audioInARPrompt.style.display = 'block';
-                        // Make the prompt itself clickable to trigger audio
-                        audioInARPrompt.onclick = () => {
-                            audio.play().then(() => {
-                                audioInARPrompt.style.display = 'none';
-                                audioAlreadyPlayedInAR = true; // Mark as played
-                                console.log("Audio played after user tap on prompt in AR.");
-                            }).catch(err => {
-                                console.error("Audio still failing after user tap on prompt in AR:", err);
-                                // You might want a persistent "audio failed" message here if it still doesn't play
-                            });
-                        };
-                    });
-                } else {
-                    // If audio has already been successfully played in AR, just play it again
-                    audio.play().catch(error => {
-                         console.warn("Audio play failed on re-entering AR (already played once):", error);
-                         // This might happen if user navigated away and back without closing tab
-                         // In this case, the prompt won't reappear due to audioAlreadyPlayedInAR
-                    });
-                }
+                        console.log("Displaying 'Tap to Enable Sound' prompt.");
+                    } else {
+                        // If it has been played in this session, but maybe paused/resumed weirdly
+                        console.warn("Audio failed on re-entry/resume in AR, but prompt won't reappear.");
+                    }
+                });
 
+                // Set up the click handler for the prompt. This needs to be active whenever AR starts
+                // to catch cases where initial autoplay fails.
+                audioInARPrompt.onclick = () => {
+                    audio.play().then(() => {
+                        audioInARPrompt.style.display = 'none';
+                        audioAlreadyPlayedInARSession = true; // Mark as played
+                        console.log("Audio played after user tap on prompt in AR.");
+                    }).catch(err => {
+                        console.error("Audio still failing after user tap on prompt in AR:", err);
+                        // If it still fails even after a direct tap, there's a deeper issue.
+                        // Consider a persistent message like "Audio Unavailable" here.
+                    });
+                };
 
             } else if (event.detail.status === 'session-ended') {
                 console.log('AR session ended.');
@@ -309,6 +306,8 @@
 
                 // Hide any lingering audio prompt
                 audioInARPrompt.style.display = 'none';
+                // IMPORTANT: Reset audioAlreadyPlayedInARSession so prompt can appear next time AR is launched
+                audioAlreadyPlayedInARSession = false;
 
                 // If on PC, re-show the AR message
                 if (!isMobileDevice()) {
@@ -317,20 +316,16 @@
                 }
 
             } else if (event.detail.status === 'not-ar-capable') {
-                // This status can occur on mobile if device truly isn't AR capable,
-                // or on desktop if the model-viewer determines it.
-                if (!isMobileDevice()) { // Only show message if definitely on PC
+                if (!isMobileDevice()) {
                     arMessage.style.display = 'block';
-                    arButton.style.display = 'none'; // Hide AR button
+                    arButton.style.display = 'none';
                 } else {
-                     // On mobile but not AR capable - perhaps show a different message
-                     console.warn("Mobile device is not AR capable.");
-                     arMessage.textContent = "Your device is not AR capable. Viewing 3D model only.";
-                     arMessage.style.display = 'block';
-                     arButton.style.display = 'none';
+                    console.warn("Mobile device is not AR capable.");
+                    arMessage.textContent = "Your device is not AR capable. Viewing 3D model only.";
+                    arMessage.style.display = 'block';
+                    arButton.style.display = 'none';
                 }
             }
-            // For other ar-status like 'failed', 'error', etc., you might add more handling
         });
 
         // --- URL Button Logic ---
