@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sugarlump Amazon Book</title>
+    <title>Sugarlump Amazon Book with Animation Controls</title>
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
     <script nomodule src="https://unpkg.com/@google/model-viewer/dist/model-viewer-legacy.js"></script>
     <style>
@@ -16,15 +16,18 @@
             justify-content: center;
             min-height: 100vh;
             background-color: #f0f0f0;
-            position: relative; /* For absolute positioning of buttons */
+            position: relative; /* For absolute positioning of controls */
+            overflow: hidden; /* Prevent scrollbars if model-viewer is full height */
         }
         model-viewer {
-            width: 100%; /* Make it fill more width */
-            height: 100vh; /* Make it fill the viewport height */
+            width: 100%;
+            height: 100vh; /* Occupy full viewport height */
             background-color: #ffffff;
-            /* Removed border-radius and box-shadow for full screen look */
+            /* No border-radius or box-shadow for a seamless look */
         }
-        .controls-container {
+
+        /* Container for the main controls (Play/Pause, Go to Book) */
+        .main-controls-container {
             position: absolute;
             bottom: 20px; /* Adjust as needed */
             left: 50%;
@@ -33,6 +36,8 @@
             gap: 15px; /* Space between buttons */
             z-index: 10; /* Ensure buttons are above model-viewer */
         }
+
+        /* Styling for all buttons */
         button {
             padding: 10px 20px;
             font-size: 16px;
@@ -41,46 +46,47 @@
             border-radius: 5px;
             transition: background-color 0.3s ease;
         }
+
+        /* Specific styles for each button type */
         .ar-button {
             background-color: #007bff;
             color: white;
+            /* Positioned directly by model-viewer's slot, but keeping style */
         }
         .ar-button:hover {
             background-color: #0056b3;
         }
+
         .play-pause-button {
-            background-color: #6f42c1; /* A distinct color for play/pause */
+            background-color: #6f42c1; /* Purple */
             color: white;
         }
         .play-pause-button:hover {
             background-color: #5a2e9b;
         }
+
         .url-button {
-            background-color: #28a745;
+            background-color: #28a745; /* Green */
             color: white;
         }
         .url-button:hover {
             background-color: #218838;
         }
-        /* Style for the audio play button, if kept separate from controls */
+
+        /* Style for the audio play button, positioned separately */
         #play-audio-standalone {
             position: absolute;
-            top: 20px; /* Position it at the top */
+            top: 20px; /* Position it at the top-left */
             left: 20px;
-            padding: 10px 20px;
-            font-size: 16px;
             background-color: #ffc107; /* Yellow for audio */
             color: #333;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
             z-index: 10;
         }
         #play-audio-standalone:hover {
             background-color: #e0a800;
         }
 
-        /* Hide the URL button initially, as per your original logic */
+        /* Hide the URL button initially as per your original logic */
         #url-button {
             display: none;
         }
@@ -95,22 +101,20 @@
         ar
         ar-modes="scene-viewer webxr quick-look"
         camera-controls
-        auto-rotate
-        autoplay
         poster="images/rocks.png"
         shadow-intensity="1"
         ar-scale="auto"
         ar-placement="floor"
         interaction-prompt="none"
-    >
+        animation-name="Wave" autoplay="false" >
         <button slot="ar-button" id="ar-button" class="ar-button">View in your space</button>
     </model-viewer>
 
     <audio id="audio" src="Sound/Kindness Rocks_mix.mp3" loop></audio>
     <button id="play-audio-standalone">Play Audio</button>
 
-    <div class="controls-container">
-        <button id="playPauseButton" class="play-pause-button">Pause Animation</button>
+    <div class="main-controls-container">
+        <button id="playPauseButton" class="play-pause-button">Play Animation</button>
         <button id="url-button" class="url-button">Go to Book</button>
     </div>
 
@@ -121,30 +125,37 @@
         const audio = document.getElementById('audio');
         const playAudioStandaloneButton = document.getElementById('play-audio-standalone');
 
-        // --- Play/Pause for Model-Viewer Animation ---
-        let isPlaying = modelViewer.hasAttribute('auto-rotate') || modelViewer.hasAttribute('autoplay');
+        // --- Model-Viewer Animation Control ---
+        // We'll manage the animation state entirely with this button.
+        // The model-viewer starts paused since auto-rotate/autoplay are removed.
+        let isAnimationPlaying = false; // Initialize to false as we're no longer auto-playing
 
-        // Initial button text based on current state
-        playPauseButton.textContent = isPlaying ? 'Pause Animation' : 'Play Animation';
+        // Set initial button text to "Play Animation"
+        playPauseButton.textContent = 'Play Animation';
 
         playPauseButton.addEventListener('click', () => {
-            if (isPlaying) {
+            if (isAnimationPlaying) {
                 modelViewer.pause();
                 playPauseButton.textContent = 'Play Animation';
             } else {
+                // Ensure there's an animation to play. If not, this will do nothing.
+                // You might want to check modelViewer.availableAnimations if your model
+                // doesn't always have one, or if you want to explicitly start a default.
                 modelViewer.play();
                 playPauseButton.textContent = 'Pause Animation';
             }
-            isPlaying = !isPlaying;
+            isAnimationPlaying = !isAnimationPlaying;
         });
 
-        // Keep button text in sync if animation state changes programmatically
+        // Listen to model-viewer's internal play/pause events
+        // to keep our button in sync, useful if other scripts control it.
         modelViewer.addEventListener('play', () => {
-            isPlaying = true;
+            isAnimationPlaying = true;
             playPauseButton.textContent = 'Pause Animation';
         });
+
         modelViewer.addEventListener('pause', () => {
-            isPlaying = false;
+            isAnimationPlaying = false;
             playPauseButton.textContent = 'Play Animation';
         });
 
@@ -159,33 +170,17 @@
 
         // --- URL Button Logic ---
         urlButton.addEventListener('click', () => {
-            const targetUrl = "https://www.amazon.com/Sweet-Dreams-Sugarlump-childrens-everywhere/dp/B0FFZD7D12/ref=sr_1_1?crid=2PE5ZR31RUKFJ&dib=eyJ2IjoiMSJ9.eirXTPVo6volOV0M2LSzWYM7M7OETpDHtuB5kCsvMqZpHjvNE3fvrGYiQzi9OEE_KnGVoDwiK8TJUKsihTlWlEkYrzfe4QfSs8rE6vaoo0Y5BfWqKzpuFPGm7bKE9IC-Kz-0FvP462KBgxOa04D1aqfLppMInjk90QDppqNon6eTrQ0InDpeNmty3hB14QayZjes0oEcHGgvSH_4mtoM9SHyIbK9wzspljEyRdN_vAiF9SAFTutLx3FZqHy8JM44s5QDZ0XdYakBff_dMR3KMvFf10ZCsMFhMmGz6QY5jPI.EkEaYpKKTbUyJ3uJZG_vjHaGCtcX2MSHyN27dyNdIqY&dib_tag=se&keywords=sugarlump&qid=1752536576&sprefix=sugarlump%2Caps%2C158&sr=8-1'";
-            window.open(targetUrl, '_blank'); // Opens in a new tab
+            const amazonUrl = "https://www.amazon.com/Sweet-Dreams-Sugarlump-childrens-everywhere/dp/B0FFZD7D12/ref=sr_1_1?crid=2PE5ZR31RUKFJ&dib=eyJ2IjoiMSJ9.eirXTPVo6volOV0M2LSzWYM7M7OETpDHtuB5kCsvMqZpHjvNE3fvrGYiQzi9OEE_KnGVoDwiK8TJUKsihTlWlEkYrzfe4QfSs8rE6vaoo0Y5BfWqKzpuFPGm7bKE9IC-Kz-0FvP462KBgxOa04D1aqfLppMInjk90QDppqNon6eTrQ0InDpeNmty3hB14QayZjes0oEcHGgvSH_4mtoM9SHyIbK9wzspljEyRdN_vAiF9SAFTutLx3FZqHy8JM44s5QDZ0XdYakBff_dMR3KMvFf10ZCsMFhMmGz6QY5jPI.EkEaYpKKTbUyJ3uJZG_vjHaGCtcX2MSHyN27dyNdIqY&dib_tag=se&keywords=sugarlump&qid=1752536576&sprefix=sugarlump%2Caps%2C158&sr=8-1'";
+            window.open(amazonUrl, '_blank'); // Opens in a new tab
         });
 
         // --- Audio Play Button Logic ---
         playAudioStandaloneButton.addEventListener('click', () => {
             audio.play();
-            // Optional: Disable the button or change its text after playing
+            // Optionally, change text or disable after first play
             playAudioStandaloneButton.textContent = 'Playing Audio';
-            playAudioStandaloneButton.disabled = true; // Prevents re-clicking
+            playAudioStandaloneButton.disabled = true;
         });
-
-        // If you want the audio button to toggle play/pause:
-        /*
-        let isAudioPlaying = false;
-        playAudioStandaloneButton.addEventListener('click', () => {
-            if (isAudioPlaying) {
-                audio.pause();
-                playAudioStandaloneButton.textContent = 'Play Audio';
-            } else {
-                audio.play();
-                playAudioStandaloneButton.textContent = 'Pause Audio';
-            }
-            isAudioPlaying = !isAudioPlaying;
-        });
-        */
-
     </script>
 </body>
 </html>
