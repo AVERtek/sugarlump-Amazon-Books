@@ -54,7 +54,6 @@
         .ar-button {
             background-color: #007bff;
             color: white;
-            /* Ensure the AR button is visible if it's the primary way to launch AR */
             display: block; 
             margin-bottom: 10px; /* Space from other controls */
         }
@@ -179,7 +178,7 @@
             100% { transform: translateX(-50%) scale(1); opacity: 1; }
         }
 
-        /* NEW: Style for the AR Exit Button */
+        /* Style for the AR Exit Button */
         #ar-exit-button {
             position: absolute;
             top: 20px;
@@ -225,7 +224,8 @@
         ar-scale="auto"
         ar-placement="floor"
         interaction-prompt="none"
-        animation-name="Wave"> <button slot="ar-button" id="ar-button" class="ar-button">Launch AR</button>
+        animation-name="Wave"> 
+        <button slot="ar-button" id="ar-button" class="ar-button">Launch AR</button>
     </model-viewer>
     
     <button id="ar-exit-button">Exit AR</button> 
@@ -411,11 +411,12 @@
                 playStopButton.style.display = 'none';
                 document.querySelector('.playback-controls').style.display = 'none';
                 urlButton.style.display = 'none'; // URL button hidden until AR session starts/ends
+                arExitButton.style.display = 'none'; // Ensure AR exit button is hidden initially
 
                 // Attempt to activate AR directly
-                // This might still trigger the "Tap to Enable Sound" due to autoplay policies
                 modelViewer.activateAR().then(() => {
                     console.log("AR activated successfully on load.");
+                    // If AR activates, the ar-status listener will handle showing the exit button
                 }).catch(error => {
                     console.warn("Failed to activate AR on load (likely not capable or user denied):", error);
                     // If AR fails to activate on load, revert to 3D controls for mobile
@@ -425,6 +426,7 @@
                     document.querySelector('.playback-controls').style.display = 'flex';
                     urlButton.style.display = 'block';
                     arButton.style.display = 'none'; // Ensure AR button is hidden if not capable
+                    arExitButton.style.display = 'none'; // Ensure it stays hidden
                 });
 
             } else {
@@ -434,10 +436,10 @@
                 playStopButton.style.display = 'block'; // Show 3D controls on desktop
                 document.querySelector('.playback-controls').style.display = 'flex';
                 urlButton.style.display = 'block'; 
+                arExitButton.style.display = 'none'; // Ensure AR exit button is hidden on desktop
             }
             playStopButton.textContent = 'Play';
             playStopButton.classList.remove('stop-button');
-            arExitButton.style.display = 'none'; // Ensure AR exit button is hidden on initial load
         });
 
         // --- AR Status Listener ---
@@ -512,10 +514,9 @@
 
                 // Restore 3D controls relevant to the device type
                 if (isMobileDevice()) {
-                     // On mobile, if AR ended, show the AR button and hide 3D controls (unless not AR capable)
-                    // If AR was explicitly exited (via button or system), the user is back to the 2D page
-                    // We can choose to either show the AR button again or show the 3D controls.
-                    // For "AR first", it makes sense to show the AR button again.
+                    // On mobile, if AR ended, show the AR button again.
+                    // The 3D playback controls remain hidden, as the primary interaction
+                    // is expected to be AR for this setup.
                     arButton.style.display = 'block'; 
                     playStopButton.style.display = 'none';
                     document.querySelector('.playback-controls').style.display = 'none';
@@ -555,7 +556,7 @@
             }
         });
 
-        // NEW: Event listener for your custom AR exit button
+        // Event listener for your custom AR exit button
         arExitButton.addEventListener('click', () => {
             console.log('Attempting to exit AR via custom button.');
             modelViewer.exitAR(); // This is the key API call
