@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sugarlump Amazon Book with Animation Controls</title>
+    <title>Sugarlump Amazon Book - AR First, Unified Controls</title>
     <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
     <script nomodule src="https://unpkg.com/@google/model-viewer/dist/model-viewer-legacy.js"></script>
     <style>
@@ -16,25 +16,24 @@
             justify-content: center;
             min-height: 100vh;
             background-color: #f0f0f0;
-            position: relative; /* For absolute positioning of controls */
-            overflow: hidden; /* Prevent scrollbars if model-viewer is full height */
+            position: relative;
+            overflow: hidden;
         }
         model-viewer {
             width: 100%;
-            height: 100vh; /* Occupy full viewport height */
+            height: 100vh;
             background-color: #ffffff;
-            /* No border-radius or box-shadow for a seamless look */
         }
 
         /* Container for the main controls (Play/Pause, Go to Book) */
         .main-controls-container {
             position: absolute;
-            bottom: 20px; /* Adjust as needed */
+            bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
-            gap: 15px; /* Space between buttons */
-            z-index: 10; /* Ensure buttons are above model-viewer */
+            gap: 15px;
+            z-index: 10;
         }
 
         /* Styling for all buttons */
@@ -49,16 +48,15 @@
 
         /* Specific styles for each button type */
         .ar-button {
-            background-color: #007bff;
+            background-color: #007bff; /* Blue for AR */
             color: white;
-            /* Positioned directly by model-viewer's slot, but keeping style */
         }
         .ar-button:hover {
             background-color: #0056b3;
         }
 
         .play-pause-button {
-            background-color: #6f42c1; /* Purple */
+            background-color: #6f42c1; /* Purple for Play/Pause */
             color: white;
         }
         .play-pause-button:hover {
@@ -66,33 +64,36 @@
         }
 
         .url-button {
-            background-color: #28a745; /* Green */
+            background-color: #28a745; /* Green for URL */
             color: white;
         }
         .url-button:hover {
             background-color: #218838;
         }
 
-        /* Style for the audio play button, positioned separately */
-        #play-audio-standalone {
+        /* Message for PC users for AR */
+        #ar-message {
             position: absolute;
-            top: 20px; /* Position it at the top-left */
-            left: 20px;
-            background-color: #ffc107; /* Yellow for audio */
-            color: #333;
-            z-index: 10;
-        }
-        #play-audio-standalone:hover {
-            background-color: #e0a800;
-        }
-
-        /* Hide the URL button initially as per your original logic */
-        #url-button {
-            display: none;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 1.2em;
+            z-index: 20; /* Ensure it's above everything */
+            display: none; /* Hidden by default */
         }
     </style>
 </head>
 <body>
+    <div id="ar-message">
+        This AR experience requires a mobile device.<br>
+        Please open this page on your smartphone or tablet.
+    </div>
+
     <model-viewer
         id="myModelViewer"
         src="Models/kindness_rocks_large_7.glb"
@@ -107,14 +108,13 @@
         ar-placement="floor"
         interaction-prompt="none"
         animation-name="Wave" autoplay="false" >
-        <button slot="ar-button" id="ar-button" class="ar-button">View in your space</button>
+        <button slot="ar-button" id="ar-button" class="ar-button">View in your space (AR)</button>
     </model-viewer>
 
     <audio id="audio" src="Sound/Kindness Rocks_mix.mp3" loop></audio>
-    <button id="play-audio-standalone">Play Audio</button>
 
     <div class="main-controls-container">
-        <button id="playPauseButton" class="play-pause-button">Play Animation</button>
+        <button id="playPauseButton" class="play-pause-button">Play Animation & Audio</button>
         <button id="url-button" class="url-button">Go to Book</button>
     </div>
 
@@ -123,64 +123,97 @@
         const playPauseButton = document.getElementById('playPauseButton');
         const urlButton = document.getElementById('url-button');
         const audio = document.getElementById('audio');
-        const playAudioStandaloneButton = document.getElementById('play-audio-standalone');
+        const arMessage = document.getElementById('ar-message');
+        const arButton = document.getElementById('ar-button'); // Reference to the slotted AR button
 
-        // --- Model-Viewer Animation Control ---
-        // We'll manage the animation state entirely with this button.
-        // The model-viewer starts paused since auto-rotate/autoplay are removed.
-        let isAnimationPlaying = false; // Initialize to false as we're no longer auto-playing
+        let isPlaying = false; // Initial state: neither animation nor audio is playing
 
-        // Set initial button text to "Play Animation"
-        playPauseButton.textContent = 'Play Animation';
+        // --- Device Detection (Simple) ---
+        function isMobileDevice() {
+            return /Mobi|Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                   ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+        }
 
-        playPauseButton.addEventListener('click', () => {
-            if (isAnimationPlaying) {
-                modelViewer.pause();
-                playPauseButton.textContent = 'Play Animation';
+        // --- Immediate AR Launch on Mobile / PC Message ---
+        document.addEventListener('DOMContentLoaded', () => {
+            if (isMobileDevice()) {
+                // If on mobile, attempt to activate AR immediately
+                // Note: User interaction might still be required by the browser/OS for AR launch
+                // For a more robust "immediate" AR, you might need a small initial click
+                // from the user before activateAR(). We'll try directly first.
+                modelViewer.activateAR();
             } else {
-                // Ensure there's an animation to play. If not, this will do nothing.
-                // You might want to check modelViewer.availableAnimations if your model
-                // doesn't always have one, or if you want to explicitly start a default.
-                modelViewer.play();
-                playPauseButton.textContent = 'Pause Animation';
+                // If on PC, show the message
+                arMessage.style.display = 'block';
+                // You might also want to hide the AR button on PC if it doesn't do anything
+                arButton.style.display = 'none';
             }
-            isAnimationPlaying = !isAnimationPlaying;
         });
 
-        // Listen to model-viewer's internal play/pause events
-        // to keep our button in sync, useful if other scripts control it.
+        // --- Unified Play/Pause for Model Animation and Audio ---
+        playPauseButton.textContent = 'Play Animation & Audio'; // Initial button text
+
+        playPauseButton.addEventListener('click', () => {
+            if (isPlaying) {
+                modelViewer.pause(); // Pause model animation
+                audio.pause();       // Pause audio
+                playPauseButton.textContent = 'Play Animation & Audio';
+            } else {
+                modelViewer.play();  // Play model animation
+                audio.play();        // Play audio
+                playPauseButton.textContent = 'Pause Animation & Audio';
+            }
+            isPlaying = !isPlaying;
+        });
+
+        // --- Ensure state synchronization from model-viewer events ---
+        // If the model's animation starts/stops for reasons other than our button
         modelViewer.addEventListener('play', () => {
-            isAnimationPlaying = true;
-            playPauseButton.textContent = 'Pause Animation';
+            if (!isPlaying) { // Only update if our button wasn't the cause
+                isPlaying = true;
+                playPauseButton.textContent = 'Pause Animation & Audio';
+                if (audio.paused) { audio.play(); } // Ensure audio plays if model starts
+            }
         });
 
         modelViewer.addEventListener('pause', () => {
-            isAnimationPlaying = false;
-            playPauseButton.textContent = 'Play Animation';
+            if (isPlaying) { // Only update if our button wasn't the cause
+                isPlaying = false;
+                playPauseButton.textContent = 'Play Animation & Audio';
+                if (!audio.paused) { audio.pause(); } // Ensure audio pauses if model stops
+            }
         });
 
         // --- AR Status and URL Button Visibility ---
         modelViewer.addEventListener('ar-status', (event) => {
             if (event.detail.status === 'session-started') {
                 urlButton.style.display = 'block';
+                arMessage.style.display = 'none'; // Hide message once AR starts
+                // You might also want to hide the Play/Pause button during AR
+                playPauseButton.style.display = 'none';
+            } else if (event.detail.status === 'not-ar-capable' && !isMobileDevice()) {
+                // If not AR capable and on desktop, reinforce the message
+                arMessage.style.display = 'block';
+                arButton.style.display = 'none'; // Hide AR button if not capable
             } else {
                 urlButton.style.display = 'none';
+                // Show play/pause button again if AR session ends
+                playPauseButton.style.display = 'block';
+                // Re-show AR message if AR session ends on PC
+                if (!isMobileDevice()) {
+                     arMessage.style.display = 'block';
+                     arButton.style.display = 'none'; // Ensure AR button stays hidden on PC
+                }
             }
         });
+
 
         // --- URL Button Logic ---
         urlButton.addEventListener('click', () => {
             const amazonUrl = "https://www.amazon.com/Sweet-Dreams-Sugarlump-childrens-everywhere/dp/B0FFZD7D12/ref=sr_1_1?crid=2PE5ZR31RUKFJ&dib=eyJ2IjoiMSJ9.eirXTPVo6volOV0M2LSzWYM7M7OETpDHtuB5kCsvMqZpHjvNE3fvrGYiQzi9OEE_KnGVoDwiK8TJUKsihTlWlEkYrzfe4QfSs8rE6vaoo0Y5BfWqKzpuFPGm7bKE9IC-Kz-0FvP462KBgxOa04D1aqfLppMInjk90QDppqNon6eTrQ0InDpeNmty3hB14QayZjes0oEcHGgvSH_4mtoM9SHyIbK9wzspljEyRdN_vAiF9SAFTutLx3FZqHy8JM44s5QDZ0XdYakBff_dMR3KMvFf10ZCsMFhMmGz6QY5jPI.EkEaYpKKTbUyJ3uJZG_vjHaGCtcX2MSHyN27dyNdIqY&dib_tag=se&keywords=sugarlump&qid=1752536576&sprefix=sugarlump%2Caps%2C158&sr=8-1'";
-            window.open(amazonUrl, '_blank'); // Opens in a new tab
+            window.open(amazonUrl, '_blank');
         });
 
-        // --- Audio Play Button Logic ---
-        playAudioStandaloneButton.addEventListener('click', () => {
-            audio.play();
-            // Optionally, change text or disable after first play
-            playAudioStandaloneButton.textContent = 'Playing Audio';
-            playAudioStandaloneButton.disabled = true;
-        });
     </script>
 </body>
 </html>
