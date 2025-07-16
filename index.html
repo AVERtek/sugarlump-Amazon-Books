@@ -23,7 +23,7 @@
             width: 100%;
             height: 100vh;
             background-color: #ffffff;
-            /* Ensure model-viewer itself is relative for absolute positioning of slotted elements */
+            /* CRUCIAL: Ensure model-viewer itself is relative for absolute positioning of slotted elements */
             position: relative; 
         }
 
@@ -33,7 +33,7 @@
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            display: flex; /* Default to flex, JS will hide/show */
+            display: flex; /* Default to flex, JS will hide/show based on device/AR status */
             flex-direction: column;
             gap: 10px;
             align-items: center;
@@ -49,14 +49,14 @@
             cursor: pointer;
             border: none;
             border-radius: 5px;
-            transition: background-color 0.3s ease, opacity 0.3s ease; /* Added opacity transition */
+            transition: background-color 0.3s ease;
         }
 
         /* Specific styles for each button type */
         .ar-button {
             background-color: #007bff;
             color: white;
-            display: block; 
+            display: block; /* Default display for this button in its slot */
             margin-bottom: 10px; /* Space from other controls */
         }
         .ar-button:hover {
@@ -148,7 +148,7 @@
             text-align: center;
             font-size: 1.2em;
             z-index: 20;
-            display: none;
+            display: none; /* Hidden by default, JS will manage */
             box-sizing: border-box;
         }
 
@@ -165,7 +165,7 @@
             text-align: center;
             font-size: 1em;
             z-index: 30;
-            display: none;
+            display: none; /* Hidden by default, JS will manage */
             cursor: pointer;
             white-space: nowrap;
             animation: pulse 1.5s infinite;
@@ -190,9 +190,7 @@
             font-size: 16px;
             cursor: pointer;
             z-index: 999; 
-            /* Start with opacity 0 and no pointer events, JS will make it visible */
-            opacity: 0;
-            pointer-events: none;
+            display: none; /* Hidden by default, JS will make it 'block' when AR starts */
         }
         #ar-exit-button[slot="exit-webxr-ar-button"]:hover {
             background-color: rgba(0, 0, 0, 0.8);
@@ -207,13 +205,7 @@
             width: 90%; 
             max-width: 500px;
             z-index: 998; 
-            /* Start with opacity 0 and no pointer events, JS will make it visible */
-            opacity: 0;
-            pointer-events: none;
-        }
-        /* Inherit the common url-button styles */
-        #ar-url-button[slot="ar-url-button"].url-button {
-            /* No need to re-define, it will inherit */
+            display: none; /* Hidden by default, JS will make it 'block' when AR starts */
         }
     </style>
 </head>
@@ -244,16 +236,13 @@
         ar-placement="floor"
         interaction-prompt="none"
         animation-name="Wave"> 
-
-        <div class="slider">
-        <div class="slides">
+        
         <button slot="ar-button" id="ar-button" class="ar-button">Launch AR</button>
         
         <button slot="exit-webxr-ar-button" id="ar-exit-button">Exit AR</button> 
 
         <button slot="ar-url-button" id="ar-url-button" class="url-button">Order Sweet Dreams Sugarlump Book</button>
-        </div>
-        </div>
+        
     </model-viewer>
     
     <audio id="audio" src="Sound/Kindness Rocks_mix.mp3" loop preload="auto"></audio>
@@ -272,13 +261,13 @@
         const modelViewer = document.getElementById('myModelViewer');
         const playStopButton = document.getElementById('playStopButton');
         const mainControlsContainer = document.querySelector('.main-controls-container'); 
-        const urlButton3D = document.getElementById('url-button-3d'); // Renamed for clarity
+        const urlButton3D = document.getElementById('url-button-3d'); // The URL button for the 3D viewer
         const audio = document.getElementById('audio');
         const arMessage = document.getElementById('ar-message');
-        const arButton = document.getElementById('ar-button'); 
+        const arButton = document.getElementById('ar-button'); // The default AR launch button
         const audioInARPrompt = document.getElementById('audio-in-ar-prompt');
-        const arExitButton = document.getElementById('ar-exit-button'); 
-        const arUrlButton = document.getElementById('ar-url-button'); // New reference for the AR URL button
+        const arExitButton = document.getElementById('ar-exit-button'); // The slotted AR exit button
+        const arUrlButton = document.getElementById('ar-url-button'); // The slotted AR URL button
 
         const animationSeeker = document.getElementById('animationSeeker');
         const currentTimeDisplay = document.getElementById('currentTimeDisplay');
@@ -436,30 +425,23 @@
             audio.load(); // Explicitly load audio early
 
             if (isMobileDevice()) {
-                console.log("Mobile device detected. Attempting to activate AR immediately.");
+                console.log("Mobile device detected.");
                 arMessage.style.display = 'none';
-                arButton.style.display = 'none'; // Hide default AR launch button
-                mainControlsContainer.style.display = 'none'; // Hide 3D controls initially
-                arExitButton.style.opacity = '0'; // Hidden initially
-                arExitButton.style.pointerEvents = 'none';
-                arUrlButton.style.opacity = '0'; // Hidden initially
-                arUrlButton.style.pointerEvents = 'none';
+                arButton.style.display = 'none'; // Hide default AR launch button on auto-launch setup
+                mainControlsContainer.style.display = 'none'; // Hide 3D controls initially on mobile
+                arExitButton.style.display = 'none'; // Slotted AR buttons are hidden by default in CSS
+                arUrlButton.style.display = 'none'; 
 
                 // Attempt to activate AR directly
                 modelViewer.activateAR().then(() => {
-                    console.log("AR activated successfully on load.");
-                    // The 'ar-status' listener will handle showing the AR-specific UI
+                    console.log("AR activated successfully on load. AR status listener will handle UI.");
                 }).catch(error => {
                     console.warn("Failed to activate AR on load (likely not capable or user denied):", error);
-                    // If AR fails to activate on load, revert to 3D controls for mobile
+                    // If AR fails, switch to 3D mode UI for mobile
                     arMessage.textContent = "Could not start AR. Viewing 3D model only.";
                     arMessage.style.display = 'block';
                     mainControlsContainer.style.display = 'flex'; // Show 3D controls
-                    arButton.style.display = 'none'; // Ensure AR button is hidden if not capable
-                    arExitButton.style.opacity = '0'; // Ensure it stays hidden
-                    arExitButton.style.pointerEvents = 'none';
-                    arUrlButton.style.opacity = '0'; // Ensure hidden if AR not capable
-                    arUrlButton.style.pointerEvents = 'none';
+                    arButton.style.display = 'none'; // Ensure AR button stays hidden
                 });
 
             } else {
@@ -467,10 +449,8 @@
                 arMessage.style.display = 'block'; // Show desktop message
                 arButton.style.display = 'none'; // Hide AR button on desktop
                 mainControlsContainer.style.display = 'flex'; // Show 3D controls on desktop
-                arExitButton.style.opacity = '0'; // Ensure AR exit button is hidden on desktop
-                arExitButton.style.pointerEvents = 'none';
-                arUrlButton.style.opacity = '0'; // Ensure hidden on desktop
-                arUrlButton.style.pointerEvents = 'none';
+                arExitButton.style.display = 'none'; // Slotted AR buttons are hidden on desktop
+                arUrlButton.style.display = 'none'; 
             }
             playStopButton.textContent = 'Play';
             playStopButton.classList.remove('stop-button');
@@ -481,20 +461,18 @@
             console.log('AR Status Event:', event.detail.status);
 
             if (event.detail.status === 'session-started') {
-                console.log('AR session started! Attempting to play animation and audio.');
+                console.log('AR session started! Displaying AR controls.');
                 isARActive = true;
-                audioPlayAttemptedInAR = false; // Reset flag for this new AR session
+                audioPlayAttemptedInAR = false; 
 
-                // Hide 3D playback controls and the AR launch button
+                // Hide all 3D view controls and messages
                 arMessage.style.display = 'none';
                 mainControlsContainer.style.display = 'none'; 
                 arButton.style.display = 'none'; 
                 
                 // Show the custom AR exit button and the AR URL button
-                arExitButton.style.opacity = '1'; 
-                arExitButton.style.pointerEvents = 'auto';
-                arUrlButton.style.opacity = '1'; 
-                arUrlButton.style.pointerEvents = 'auto';
+                arExitButton.style.display = 'block'; 
+                arUrlButton.style.display = 'block'; 
 
                 // Play animation in AR
                 if (modelViewer.animationName) {
@@ -505,17 +483,15 @@
                 }
 
                 // Attempt to play audio in AR
-                audio.currentTime = 0; // Ensure audio starts from beginning for AR
-                audio.muted = false; // Ensure not muted
+                audio.currentTime = 0; 
+                audio.muted = false; 
                 audio.play().then(() => {
                     console.log("Audio played successfully in AR (autoplay success).");
-                    audioInARPrompt.style.display = 'none'; // Hide prompt if successful
+                    audioInARPrompt.style.display = 'none'; 
                     audioPlayAttemptedInAR = true;
                 }).catch(error => {
                     console.error("Audio autoplay failed in AR (user gesture needed):", error);
-                    console.error("Audio Play Error Details:", error.name, error.message);
-                    
-                    if (!audioPlayAttemptedInAR) { // Show prompt only if this is the first attempt in this session
+                    if (!audioPlayAttemptedInAR) { 
                         audioInARPrompt.style.display = 'block';
                         console.log("Displaying 'Tap to Enable Sound' prompt in AR.");
                         audioPlayAttemptedInAR = true; 
@@ -532,7 +508,6 @@
                         console.log("Audio played successfully after user tap on prompt in AR.");
                     }).catch(err => {
                         console.error("Audio still failing after user tap on prompt in AR:", err);
-                        console.error("Audio Play Error Details (Tap):", err.name, err.message);
                         audioInARPrompt.textContent = "Sound Unavailable";
                         audioInARPrompt.style.backgroundColor = "gray";
                         audioInARPrompt.onclick = null;
@@ -540,23 +515,20 @@
                 };
 
             } else if (event.detail.status === 'session-ended') {
-                console.log('AR session ended.');
+                console.log('AR session ended. Restoring 3D controls.');
                 isARActive = false;
 
                 // Hide AR-specific UI
-                arExitButton.style.opacity = '0'; 
-                arExitButton.style.pointerEvents = 'none';
-                arUrlButton.style.opacity = '0'; 
-                arUrlButton.style.pointerEvents = 'none';
+                arExitButton.style.display = 'none';
+                arUrlButton.style.display = 'none'; 
                 audioInARPrompt.style.display = 'none'; 
                 audioPlayAttemptedInAR = false; 
 
                 // Restore 3D controls based on device type
                 if (isMobileDevice()) {
-                     // On mobile, if AR ended, we want to return to the 3D viewer.
                     mainControlsContainer.style.display = 'flex'; // Show 3D controls
-                    arButton.style.display = 'none'; // Ensure AR button is hidden as we're in 3D mode now
-                    arMessage.style.display = 'none'; // No message needed if in 3D mode
+                    arButton.style.display = 'none'; // AR launch button not typically shown after exiting AR on mobile in this setup
+                    arMessage.style.display = 'none'; 
                 } else {
                     // On desktop, always show 3D controls and desktop message
                     arMessage.style.display = 'block';
@@ -575,16 +547,13 @@
                 currentTimeDisplay.textContent = formatTime(0);
 
             } else if (event.detail.status === 'not-ar-capable') {
-                console.log("Device is not AR capable.");
-                // Ensure relevant controls for 3D mode are visible and AR is hidden
+                console.log("Device is not AR capable. Forcing 3D view.");
                 arMessage.textContent = "Your device is not AR capable. Viewing 3D model only.";
                 arMessage.style.display = 'block';
                 arButton.style.display = 'none';
                 mainControlsContainer.style.display = 'flex'; // Show 3D controls
-                arExitButton.style.opacity = '0'; 
-                arExitButton.style.pointerEvents = 'none';
-                arUrlButton.style.opacity = '0'; 
-                arUrlButton.style.pointerEvents = 'none';
+                arExitButton.style.display = 'none'; 
+                arUrlButton.style.display = 'none'; 
             }
         });
 
@@ -606,6 +575,8 @@
     </script>
 </body>
 </html>
+
+
 
 <!--<!DOCTYPE html>
 <html lang="en">
