@@ -249,10 +249,16 @@
             return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
         }
 
-        // --- Device Detection (Simple) ---
-        function isMobileDevice() {
-            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                   ('ontouchstart' in window && navigator.maxTouchPoints > 0);
+        // --- Device Detection (More Specific) ---
+        function getDeviceOS() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            if (/android/i.test(userAgent)) {
+                return 'Android';
+            }
+            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                return 'iOS';
+            }
+            return 'Desktop';
         }
 
         // --- Unified Play/Stop Function for Model Animation and Audio (Desktop/Viewer Mode) ---
@@ -383,16 +389,45 @@
             console.log("DOM Content Loaded.");
             audio.load(); // Explicitly load audio early
 
-            if (isMobileDevice()) {
-                console.log("Mobile device detected. AR preferred.");
+            const os = getDeviceOS();
+            console.log("Detected OS:", os);
+
+            if (os === 'Android') {
+                console.log("Android device detected. Attempting immediate AR launch.");
                 arMessage.style.display = 'none';
-                // On mobile, the AR button is visible. model-viewer handles its click to launch AR.
-                arButton.style.display = 'block';
-                // Hide 3D controls initially on mobile. They will show if AR fails or session ends.
+                arButton.style.display = 'block'; // Still show AR button for manual retry or if auto-launch fails
                 playStopButton.style.display = 'none';
                 document.querySelector('.playback-controls').style.display = 'none';
-                urlButton.style.display = 'none'; // URL button hidden until AR session starts/ends
-            } else {
+                urlButton.style.display = 'none';
+
+                // Attempt to immediately activate AR for Android
+                // modelViewer.canActivateAR might be false initially until model fully loads
+                // and model-viewer internally determines capability.
+                // We'll try to activate on 'load' event too.
+                 if (modelViewer.canActivateAR) {
+                    modelViewer.activateAR();
+                 } else {
+                     // If for some reason it's not immediately capable, let's try on model load
+                     modelViewer.addEventListener('load', () => {
+                         if (modelViewer.canActivateAR) {
+                             modelViewer.activateAR();
+                             console.log("Attempted activateAR on Android after model load.");
+                         }
+                     }, { once: true }); // Only run this once
+                 }
+
+            } else if (os === 'iOS') {
+                console.log("iOS device detected. Relying on AR button for Quick Look.");
+                arMessage.style.display = 'none'; // No desktop message
+                arButton.style.display = 'block'; // Show AR button for user to tap
+                // Hide 3D controls initially on iOS, they show if AR fails or session ends.
+                playStopButton.style.display = 'none';
+                document.querySelector('.playback-controls').style.display = 'none';
+                urlButton.style.display = 'none';
+
+                // No programmatic activateAR() for iOS Quick Look. User must tap button.
+
+            } else { // Desktop
                 console.log("Desktop device detected. AR not available.");
                 arMessage.style.display = 'block'; // Show desktop message
                 arButton.style.display = 'none'; // Hide AR button on desktop
@@ -488,23 +523,34 @@
                 audioInARPrompt.style.display = 'none'; // Hide AR audio prompt
                 audioPlayAttemptedInAR = false; // Reset for next AR session
 
-                if (!isMobileDevice()) {
+                if (getDeviceOS() === 'Desktop') { // Only show desktop message if truly desktop
                     arMessage.style.display = 'block';
                     arButton.style.display = 'none'; // Hide AR button if not mobile
                 }
 
             } else if (event.detail.status === 'not-ar-capable') {
                 console.log("Device is not AR capable.");
-                if (!isMobileDevice()) {
+                const os = getDeviceOS();
+                if (os === 'Desktop') {
                     arMessage.style.display = 'block';
                     arButton.style.display = 'none';
-                } else {
+                } else { // Mobile but not AR capable
                     arMessage.textContent = "Your device is not AR capable. Viewing 3D model only.";
                     arMessage.style.display = 'block';
                     arButton.style.display = 'none';
                 }
                 // Ensure 3D mode controls are visible if AR is not capable
                 playStopButton.style.display = 'block';
+                document.querySelector('.playback-controls').style.display = 'flex';
+                urlButton.style.display = 'block';
+            } else if (event.detail.status === 'failed') {
+                // Handle AR launch failures more gracefully
+                console.error("AR session failed:", event.detail.status);
+                isARActive = false;
+                arMessage.textContent = "AR failed to launch. Please ensure your device supports AR.";
+                arMessage.style.display = 'block';
+                arButton.style.display = 'block'; // Show AR button so user can try again
+                playStopButton.style.display = 'block'; // Re-show 3D controls
                 document.querySelector('.playback-controls').style.display = 'flex';
                 urlButton.style.display = 'block';
             }
