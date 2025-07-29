@@ -1,3 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sugarlump Amazon Book</title>
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+    <script nomodule src="https://unpkg.com/@google/model-viewer/dist/model-viewer-legacy.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f0f0f0;
+            position: relative;
+            overflow: hidden;
+        }
+        model-viewer {
+            width: 100%;
+            height: 100vh;
+            background-color: #ffffff;
+        }
+
+        /* Container for the main controls (Play/Pause, Go to Book) */
+        .main-controls-container {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: center;
+            z-index: 10;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        /* Styling for all buttons */
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Specific styles for each button type */
+        .ar-button {
+            background-color: #007bff;
+            color: white;
+            /* Ensure the AR button is visible if it's the primary way to launch AR */
+            display: block;
+            margin-bottom: 10px; /* Space from other controls */
+        }
+        .ar-button:hover {
+            background-color: #0056b3;
+        }
+
+        /* Playback bar styles */
+        .playback-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .playback-controls input[type="range"] {
+            flex-grow: 1;
+            -webkit-appearance: none;
+            height: 8px;
+            background: #d3d3d3;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity .2s;
+            border-radius: 4px;
+        }
+
+        .playback-controls input[type="range"]:hover {
+            opacity: 1;
+        }
+
+        .playback-controls input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #6f42c1;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .playback-controls input[type="range"]::-webkit-slider-thumb:hover {
+            background: #5a2e9b;
+        }
+
+        .time-display {
+            font-size: 0.9em;
+            color: #333;
+            min-width: 70px;
+            text-align: center;
+        }
+
+        .play-stop-button {
+            background-color: #6f42c1;
+            color: white;
+            padding: 8px 15px;
+        }
+        .play-stop-button:hover {
+            background-color: #5a2e9b;
+        }
+        .stop-button {
+            background-color: #dc3545; /* Red for Stop/Pause state */
+        }
+        .stop-button:hover {
+            background-color: #c82333;
+        }
+
+        .url-button {
+            background-color: #28a745;
+            color: white;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .url-button:hover {
+            background-color: #218838;
+        }
+
+        /* Message for PC users for AR - MOVED TO TOP */
+        #ar-message {
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform: none;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 0;
+            border-radius: 0;
+            text-align: center;
+            font-size: 1.2em;
+            z-index: 20;
+            display: none;
+            box-sizing: border-box;
+        }
+
+        /* Prompt for audio in AR if it doesn't autoplay */
+        #audio-in-ar-prompt {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(255, 99, 71, 0.9);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 1em;
+            z-index: 30;
+            display: none;
+            cursor: pointer;
+            white-space: nowrap;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: translateX(-50%) scale(1); opacity: 1; }
+            50% { transform: translateX(-50%) scale(1.03); opacity: 0.9; }
+            100% { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+
+        /* Styling for the AR button specifically for iOS */
+        #ar-button-ios {
+            background-color: #007bff;
+            color: white;
+            padding: 15px 30px;
+            font-size: 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: none; /* Hidden by default, shown for iOS */
+            margin-top: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        #ar-button-ios:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div id="ar-message">
+        This AR experience requires a mobile device.<br>
+        Please open this page on your smartphone or tablet.
+        <br><br>
+        (The 3D model will appear below, but AR features are mobile-only.)
+    </div>
+
+    <div id="audio-in-ar-prompt">
+        Tap to Enable Sound
+    </div>
+
+    <model-viewer
+        id="myModelViewer"
+        src="Models/kindness_rocks_large_7.glb?sound=Sound/Kindness Rocks_mix.mp3"
+        ios-src="KINDNESS_ROCKS_LARGE_7_Output.usdz"
+        alt="A 3D model"
+        ar
+        ar-modes="scene-viewer webxr quick-look"
+        camera-controls
+        poster="images/BookCover2.png"
+        shadow-intensity="1"
+        ar-scale="auto"
+        ar-placement="floor"
+        interaction-prompt="none"
+        animation-name="Wave">
+        </model-viewer>
+
+    <button id="ar-button-ios" class="ar-button">
+        <img src="images/Heart button.png" style="height: 4em; width: auto; margin-right: 5px;" alt="Custom Icon">
+        <span style="font-size: 32px; color: #000099; font-family: 'Chalet LondonNineteenEighty Regular', sans-serif; white-space: nowrap;">
+            <strong>Launch AR</strong>
+        </span>
+    </button>
+
+    <audio id="audio" src="Sound/Kindness Rocks_mix.mp3" loop preload="auto"></audio>
+
+    <div class="main-controls-container">
+        <div class="playback-controls">
+            <button id="playStopButton" class="play-stop-button">Play</button>
+            <span id="currentTimeDisplay" class="time-display">0:00</span>
+            <input type="range" id="animationSeeker" value="0" min="0" step="0.01">
+            <span id="durationDisplay" class="time-display">0:00</span>
+        </div>
+        <button id="url-button" class="url-button">Order "Sweet Dreams" Sugarlump Book</button>
+    </div>
+
+    <script>
+        const modelViewer = document.getElementById('myModelViewer');
+        const playStopButton = document.getElementById('playStopButton');
+        const urlButton = document.getElementById('url-button');
+        const audio = document.getElementById('audio');
+        const arMessage = document.getElementById('ar-message');
+        const arButtonIos = document.getElementById('ar-button-ios'); // Reference to the custom iOS AR button
+        const audioInARPrompt = document.getElementById('audio-in-ar-prompt');
+
+        const animationSeeker = document.getElementById('animationSeeker');
+        const currentTimeDisplay = document.getElementById('currentTimeDisplay');
+        const durationDisplay = document.getElementById('durationDisplay');
+
+        let isPlaying = false; // Tracks if playback (animation & audio) is currently active in 3D mode
+        let isARActive = false; // Flag to track if AR session is active
+        let audioPlayAttemptedInAR = false; // Tracks if we've tried to play audio in *this* AR session
+        let animationDuration = 0;
+        let audioDuration = 0;
+        let isSeeking = false; // Flag to prevent time updates while dragging slider
+
+        // --- Helper function to format time (e.g., 1:30) ---
+        function formatTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = Math.floor(seconds % 60);
+            return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+        }
+
+        // --- Device Detection (More Specific) ---
+        function getDeviceOS() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            if (/android/i.test(userAgent)) {
+                return 'Android';
+            }
+            if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+                return 'iOS';
+            }
+            return 'Desktop';
+        }
+
+        // --- Unified Play/Stop Function for Model Animation and Audio (Desktop/Viewer Mode) ---
+        function togglePlayStop() {
+            console.log("togglePlayStop called. isPlaying:", isPlaying, "isARActive:", isARActive);
+            if (isARActive) {
+                console.log("Play/Stop button ignored, AR is active.");
+                return;
+            }
+
+            if (isPlaying) {
+                // Currently playing, so pause
+                modelViewer.pause();
+                audio.pause();
+                isPlaying = false;
+                playStopButton.textContent = 'Play';
+                playStopButton.classList.remove('stop-button');
+                console.log("Paused animation and audio.");
+            } else {
+                // Currently paused/stopped, so play
+                if (modelViewer.animationName) {
+                    modelViewer.play();
+                    console.log("Playing model animation.");
+                } else {
+                    console.warn("No animation-name specified or found on model. Cannot play animation.");
+                }
+
+                audio.play().then(() => {
+                    console.log("Audio played successfully via Play/Stop button.");
+                }).catch(error => {
+                    console.warn("Audio play failed via Play/Stop button (user gesture needed or other issue):", error);
+                    console.error("Audio Play Error:", error.name, error.message);
+                });
+                isPlaying = true;
+                playStopButton.textContent = 'Pause';
+                playStopButton.classList.add('stop-button');
+                console.log("Attempting to play audio and animation.");
+            }
+        }
+
+        // --- Event Listeners for Model Viewer and Controls ---
+
+        // Get duration once model and audio are loaded
+        modelViewer.addEventListener('load', () => {
+            if (!modelViewer.animationName && modelViewer.availableAnimations.length > 0) {
+                modelViewer.animationName = modelViewer.availableAnimations[0];
+                console.log(`No animation-name set, using first available: ${modelViewer.animationName}`);
+            }
+            animationDuration = modelViewer.duration || 0;
+            console.log("Model animation duration:", animationDuration);
+            updateDurationDisplay();
+        });
+
+        audio.addEventListener('loadedmetadata', () => {
+            audioDuration = audio.duration;
+            console.log("Audio duration:", audioDuration);
+            updateDurationDisplay();
+        });
+
+        function updateDurationDisplay() {
+            const maxDuration = Math.max(animationDuration, audioDuration);
+            animationSeeker.max = maxDuration;
+            durationDisplay.textContent = formatTime(maxDuration);
+            console.log("Updated duration display to:", formatTime(maxDuration));
+        }
+
+        // Update seeker and current time display as audio plays
+        audio.addEventListener('timeupdate', () => {
+            if (!isSeeking && isPlaying && !isARActive) {
+                const currentTime = audio.currentTime;
+                animationSeeker.value = currentTime;
+                currentTimeDisplay.textContent = formatTime(currentTime);
+
+                if (modelViewer.currentTime !== currentTime) {
+                    modelViewer.currentTime = currentTime;
+                }
+            }
+        });
+
+        // Handle seeking when user drags the slider
+        animationSeeker.addEventListener('pointerdown', () => {
+            isSeeking = true;
+            if (isPlaying) {
+                modelViewer.pause();
+                audio.pause();
+                console.log("Pausing for seek.");
+            }
+        });
+
+        animationSeeker.addEventListener('pointerup', () => {
+            isSeeking = false;
+            const seekTime = parseFloat(animationSeeker.value);
+            modelViewer.currentTime = seekTime;
+            audio.currentTime = seekTime;
+            currentTimeDisplay.textContent = formatTime(seekTime);
+            console.log("Seeked to:", formatTime(seekTime));
+            if (isPlaying) {
+                modelViewer.play();
+                audio.play().catch(e => console.warn("Audio play failed after seek (resume):", e));
+                console.log("Resuming playback after seek.");
+            }
+        });
+
+        animationSeeker.addEventListener('input', () => {
+            currentTimeDisplay.textContent = formatTime(parseFloat(animationSeeker.value));
+        });
+
+        // When animation ends, pause both and reset states
+        modelViewer.addEventListener('animation-ended', () => {
+            if (!isARActive) {
+                modelViewer.pause();
+                audio.pause();
+                isPlaying = false;
+                playStopButton.textContent = 'Play';
+                playStopButton.classList.remove('stop-button');
+                modelViewer.currentTime = 0;
+                audio.currentTime = 0;
+                animationSeeker.value = 0;
+                currentTimeDisplay.textContent = formatTime(0);
+                console.log("Animation ended, resetting playback.");
+            }
+        });
+
+        playStopButton.addEventListener('click', togglePlayStop);
+
+        // --- Initial Setup and Device-Specific UI/AR Launch ---
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log("DOM Content Loaded.");
+            audio.load(); // Explicitly load audio early
+
+            const os = getDeviceOS();
+            console.log("Detected OS:", os);
+
+            if (os === 'Android') {
+                console.log("Android device detected. Attempting immediate AR launch.");
+                arMessage.style.display = 'none';
+                arButtonIos.style.display = 'none'; // Ensure custom iOS button is hidden
+                
+                // Hide 3D playback controls on Android since it should go straight to AR
+                playStopButton.style.display = 'none';
+                document.querySelector('.playback-controls').style.display = 'none';
+                urlButton.style.display = 'none'; // Keep URL button hidden until AR session ends or fails
+
+                // Attempt to immediately activate AR for Android
+                const tryActivateAR = () => {
+                    if (modelViewer.canActivateAR) {
+                        modelViewer.activateAR();
+                        console.log("Attempted activateAR on Android.");
+                    } else {
+                        console.warn("modelViewer.canActivateAR is false on Android. Will retry on 'ar-original-placement' or 'load'.");
+                    }
+                };
+
+                // 'ar-original-placement' is a good event for Android auto-launch.
+                // It fires when the model is ready to be placed in AR.
+                modelViewer.addEventListener('ar-original-placement', tryActivateAR, { once: true });
+                // Fallback to 'load' in case 'ar-original-placement' isn't sufficient for some reason
+                modelViewer.addEventListener('load', tryActivateAR, { once: true });
+
+
+            } else if (os === 'iOS') {
+                console.log("iOS device detected. Setting up for 3D view with AR button.");
+                arMessage.style.display = 'none'; // No desktop message
+                arButtonIos.style.display = 'block'; // Show custom AR button for user to tap
+
+                // Show 3D controls on iOS
+                playStopButton.style.display = 'block';
+                document.querySelector('.playback-controls').style.display = 'flex';
+                urlButton.style.display = 'block';
+
+                // Listener for the custom iOS AR button
+                arButtonIos.addEventListener('click', () => {
+                    console.log("iOS AR button tapped. Activating AR.");
+                    modelViewer.activateAR();
+                });
+
+            } else { // Desktop
+                console.log("Desktop device detected. AR not available.");
+                arMessage.style.display = 'block'; // Show desktop message
+                arButtonIos.style.display = 'none'; // Hide AR button on desktop
+                
+                // Show 3D controls on desktop
+                playStopButton.style.display = 'block';
+                document.querySelector('.playback-controls').style.display = 'flex';
+                urlButton.style.display = 'block';
+            }
+            // Set initial state for the play/stop button for 3D mode
+            playStopButton.textContent = 'Play';
+            playStopButton.classList.remove('stop-button');
+        });
+
+        // --- AR Status Listener ---
+        modelViewer.addEventListener('ar-status', (event) => {
+            console.log('AR Status Event:', event.detail.status);
+
+            if (event.detail.status === 'session-started') {
+                console.log('AR session started! Attempting to play animation and audio.');
+                isARActive = true;
+                audioPlayAttemptedInAR = false; // Reset flag for this new AR session
+
+                // Hide 3D desktop controls and specific AR buttons
+                arMessage.style.display = 'none';
+                playStopButton.style.display = 'none';
+                document.querySelector('.playback-controls').style.display = 'none';
+                arButtonIos.style.display = 'none'; // Hide the custom iOS AR button when AR is active
+                urlButton.style.display = 'block'; // Keep URL button visible in AR
+
+                // Play animation in AR
+                if (modelViewer.animationName) {
+                    modelViewer.play({ repetition: "infinite" }); // Loop animation in AR
+                    console.log(`Playing animation: ${modelViewer.animationName} in AR.`);
+                } else {
+                    console.warn("No animation-name specified or found. Cannot play animation in AR.");
+                }
+
+                // Attempt to play audio in AR
+                audio.currentTime = 0; // Ensure audio starts from beginning for AR
+                audio.muted = false; // Ensure not muted
+                audio.play().then(() => {
+                    console.log("Audio played successfully in AR (autoplay success).");
+                    audioInARPrompt.style.display = 'none'; // Hide prompt if successful
+                    audioPlayAttemptedInAR = true;
+                }).catch(error => {
+                    console.error("Audio autoplay failed in AR (user gesture needed):", error);
+                    console.error("Audio Play Error Details:", error.name, error.message);
+
+                    if (!audioPlayAttemptedInAR) { // Show prompt only if this is the first attempt in this session
+                        audioInARPrompt.style.display = 'block';
+                        console.log("Displaying 'Tap to Enable Sound' prompt in AR.");
+                        audioPlayAttemptedInAR = true;
+                    }
+                });
+
+                // Set click handler for the AR audio prompt
+                audioInARPrompt.onclick = () => {
+                    console.log("Audio prompt tapped. Attempting to play audio in AR...");
+                    audio.currentTime = 0;
+                    audio.muted = false;
+                    audio.play().then(() => {
+                        audioInARPrompt.style.display = 'none';
+                        console.log("Audio played successfully after user tap on prompt in AR.");
+                    }).catch(err => {
+                        console.error("Audio still failing after user tap on prompt in AR:", err);
+                        console.error("Audio Play Error Details (Tap):", err.name, err.message);
+                        audioInARPrompt.textContent = "Sound Unavailable";
+                        audioInARPrompt.style.backgroundColor = "gray";
+                        audioInARPrompt.onclick = null;
+                    });
+                };
+
+            } else if (event.detail.status === 'session-ended') {
+                console.log('AR session ended.');
+                isARActive = false;
+
+                // Restore 3D desktop controls and messages based on device
+                const os = getDeviceOS();
+                if (os === 'Android') {
+                    // On Android, after AR ends, show the main controls (no immediate re-AR launch)
+                    playStopButton.style.display = 'block';
+                    document.querySelector('.playback-controls').style.display = 'flex';
+                    urlButton.style.display = 'block';
+                    arButtonIos.style.display = 'none'; // Keep iOS button hidden
+                } else if (os === 'iOS') {
+                    // On iOS, show the main controls and the AR button again
+                    playStopButton.style.display = 'block';
+                    document.querySelector('.playback-controls').style.display = 'flex';
+                    urlButton.style.display = 'block';
+                    arButtonIos.style.display = 'block'; // Show iOS AR button again
+                } else { // Desktop
+                    arMessage.style.display = 'block';
+                    playStopButton.style.display = 'block';
+                    document.querySelector('.playback-controls').style.display = 'flex';
+                    urlButton.style.display = 'block';
+                    arButtonIos.style.display = 'none'; // Hide iOS button
+                }
+
+                modelViewer.pause();
+                audio.pause();
+                isPlaying = false; // Ensure playback is stopped in 3D view
+                playStopButton.textContent = 'Play';
+                playStopButton.classList.remove('stop-button');
+                modelViewer.currentTime = 0; // Reset animation to start for 3D view
+                audio.currentTime = 0;       // Reset audio to start for 3D view
+                animationSeeker.value = 0;
+                currentTimeDisplay.textContent = formatTime(0);
+
+                audioInARPrompt.style.display = 'none'; // Hide AR audio prompt
+                audioPlayAttemptedInAR = false; // Reset for next AR session
+
+            } else if (event.detail.status === 'not-ar-capable') {
+                console.log("Device is not AR capable.");
+                const os = getDeviceOS();
+                arButtonIos.style.display = 'none'; // Hide iOS specific AR button
+
+                if (os === 'Desktop') {
+                    arMessage.style.display = 'block';
+                } else { // Mobile but not AR capable
+                    arMessage.textContent = "Your device is not AR capable. Viewing 3D model only.";
+                    arMessage.style.display = 'block';
+                }
+                // Ensure 3D mode controls are visible if AR is not capable
+                playStopButton.style.display = 'block';
+                document.querySelector('.playback-controls').style.display = 'flex';
+                urlButton.style.display = 'block';
+            } else if (event.detail.status === 'failed') {
+                // Handle AR launch failures more gracefully
+                console.error("AR session failed:", event.detail.status);
+                isARActive = false;
+                arMessage.textContent = "AR failed to launch. Please ensure your device supports AR.";
+                arMessage.style.display = 'block';
+                urlButton.style.display = 'block'; // Always show URL button if AR fails
+
+                const os = getDeviceOS();
+                if (os === 'iOS') {
+                    arButtonIos.style.display = 'block'; // Show iOS AR button for retry
+                } else if (os === 'Android') {
+                    // For Android, if auto-launch fails, show the playback controls and URL button
+                    playStopButton.style.display = 'block';
+                    document.querySelector('.playback-controls').style.display = 'flex';
+                    // We don't show an AR button here for Android as the intent is auto-launch
+                } else { // Desktop
+                    arButtonIos.style.display = 'none'; // Keep hidden
+                }
+                playStopButton.style.display = 'block'; // Re-show 3D controls
+                document.querySelector('.playback-controls').style.display = 'flex';
+            }
+        });
+
+        // --- URL Button Logic ---
+        urlButton.addEventListener('click', () => {
+            const amazonUrl = "https://www.amazon.com/Sweet-Dreams-Sugarlump-childrens-everywhere/dp/B0FFZD7D12/ref=sr_1_1?crid=2PE5ZR31RUKFJ&dib=eyJ2IjoiMSJ9.eirXTPVo6volOV0M2LSzWYM7M7OETpDHtuB5kCsvMqZpHjvNE3fvrGYiQzi9OEE_KnGVoDwiK8TJUKsihTlWlEkYrzfe4QfSs8rE6vaoo0Y5BfWqKzpuFPGm7bKE9IC-Kz-0FvP462KBgxOa04D1aqLppMInjk90QDppTNon6eTrQ0InDpeNmty3hB14QayZjes0oEcHGgvSH_4m4oM9SHyIbK9wzspljEyRdN_vAiF9SAFTutLx3FZqHy8JM44s5QDZ0XdYakBff_dMR3KMvFf10ZCsMFhMmGz6QY5jPI.EkEaYpKKTbUyJ3uJZG_vjHaGCtcX2MSHyN27dyNdIqY&dib_tag=se&keywords=sugarlump&qid=1752536576&sprefix=sugarlump%2Caps%2C158&sr=8-1'";
+            window.open(amazonUrl, '_blank');
+        });
+    </script>
+</body>
+</html>
+
+
 <!--<!DOCTYPE html>
 <html lang="en">
 <head>
