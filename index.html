@@ -570,6 +570,16 @@
             window.open(amazonUrl, '_blank');
         });
     </script>
+
+<!--AR preferred launch code -->
+    <script>
+  window.addEventListener("load", () => {
+    var modelViewer = document.querySelector('model-viewer');
+    console.log("Can activate AR: " + modelViewer.canActivateAR);
+    modelViewer.activateAR();
+  });
+</script>
+
 </body>
 </html> -->
 
