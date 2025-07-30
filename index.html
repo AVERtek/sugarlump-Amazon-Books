@@ -406,7 +406,7 @@
         playStopButton.addEventListener('click', togglePlayStop);
 
         // --- Initial Setup and Device-Specific UI/AR Launch ---
-        <!--document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', () => {
             console.log("DOM Content Loaded.");
             audio.load(); // Explicitly load audio early
 
@@ -469,7 +469,7 @@
             // Set initial state for the play/stop button for 3D mode
             playStopButton.textContent = 'Play';
             playStopButton.classList.remove('stop-button');
-        }); -->
+        }); 
 
         // --- AR Status Listener ---
         modelViewer.addEventListener('ar-status', (event) => {
